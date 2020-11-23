@@ -1,0 +1,53 @@
+version: 2
+
+elixir_version: &elixir_version
+  ELIXIR_VERSION: 1.11.2-otp-23
+
+
+install_hex_rebar: &install_hex_rebar
+  run:
+    name: Install hex and rebar
+    command: |
+      mix local.hex --force
+      mix local.rebar --force
+
+install_nerves_bootstrap: &install_nerves_bootstrap
+  run:
+    name: Install nerves_bootstrap
+    command: |
+      mix archive.install hex nerves_bootstrap "~> 1.7" --force
+
+install_phoenix: &install_phoenix
+  run:
+    name: Install Phoenix
+      mix archive.install hex phx_new "~> 1.5" --force
+
+build: &build
+  docker:
+    - image: cimg/elixir:1.11.2-node
+  steps:
+    - checkout
+    - <<: *install_hex_rebar
+    - <<: *install_nerves_bootstrap
+    - run: 
+        name: Build Firmware
+        command: |
+          cd $MIX_FW_PROJECT
+          mix deps.get
+          mix firmware
+    - run:
+        name: Build UI
+        command: |
+          cd $MIX_UI_PROJECT
+          mix deps.get
+          mix compile
+          cd assets && npm install
+
+jobs:
+  rpi0:
+    environment:
+      <<: *elixir_version
+      MIX_FW_PROJECT: "fw"
+      MIX_UI_PROJECT: "ui"
+      MIX_TARGET: "rpi0"
+    <<: *build
