@@ -1,0 +1,1013 @@
+version: 2
+
+elixir_version: &elixir_version
+  ELIXIR_VERSION: 1.10.4-otp-23
+
+defaults: &defaults
+  working_directory: /nerves/build
+  docker:
+    - image: nervesproject/nerves_system_br:1.13.0
+
+context: &context
+  context: "org-global"
+  filters:
+    branches:
+      ignore: stats
+
+install_elixir: &install_elixir
+  run:
+    name: Install Elixir
+    command: |
+      wget https://repo.hex.pm/builds/elixir/v${ELIXIR_VERSION}.zip
+      unzip -d /usr/local/elixir v${ELIXIR_VERSION}.zip
+      echo 'export PATH=/usr/local/elixir/bin:$PATH' >> $BASH_ENV
+
+install_hex_rebar: &install_hex_rebar
+  run:
+    name: Install hex and rebar
+    command: |
+      cd /tmp
+      mix local.hex --force
+      mix local.rebar --force
+
+install_nerves_bootstrap: &install_nerves_bootstrap
+  run:
+    name: Install nerves_bootstrap
+    command: |
+      cd /tmp
+      mix archive.install hex nerves_bootstrap "~> 1.0" --force
+
+fake_ssh_keys: &fake_ssh_keys
+  run:
+    name: Generage bogus keys
+    command: |
+      rm -f ~/.ssh/id_rsa
+      ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+
+build: &build
+  steps:
+    - checkout
+    - <<: *fake_ssh_keys
+    - <<: *install_elixir
+    - <<: *install_hex_rebar
+    - <<: *install_nerves_bootstrap
+    - run: echo "$MIX_PROJECT" > .project
+    - run: echo "$MIX_TARGET" > .target
+    - run:
+        name: Build Project
+        command: |
+          cd $MIX_PROJECT
+          n=0
+          until [ $n -ge 5 ]; do
+            mix deps.get && break
+            n=$((n+1))
+            echo "Error while fetching deps. Retrying in 5 seconds"
+            sleep 5
+          done
+          MIX_ENV=dev mix firmware
+          MIX_ENV=prod mix firmware
+    - run:
+        name: Create stats dir
+        command: mkdir -p /home/nerves/stats
+    - run:
+        name: Collect stats
+        command: |
+          dev_size=$(stat -c %s $MIX_PROJECT/_build/${MIX_TARGET}_dev/nerves/images/*.fw)
+          prod_size=$(stat -c %s $MIX_PROJECT/_build/${MIX_TARGET}_prod/nerves/images/*.fw)
+          timestamp=$(date +%s)
+          echo "$CIRCLE_BUILD_NUM,$timestamp,$CIRCLE_BRANCH,$CIRCLE_SHA1,$MIX_PROJECT,$MIX_TARGET,dev,$dev_size" > /home/nerves/stats/$CIRCLE_BUILD_NUM.csv
+          echo "$CIRCLE_BUILD_NUM,$timestamp,$CIRCLE_BRANCH,$CIRCLE_SHA1,$MIX_PROJECT,$MIX_TARGET,prod,$prod_size" >> /home/nerves/stats/$CIRCLE_BUILD_NUM.csv
+    - store_artifacts:
+        path: /home/nerves/stats
+        destination: stats
+    - save_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+        paths:
+          - /home/nerves/stats
+
+collect_stats: &collect_stats
+  steps:
+    - checkout
+    - run:
+        name: blinky
+        command: echo "blinky" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: hello_gpio
+        command: echo "hello_gpio" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: hello_leds
+        command: echo "hello_leds" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: hello_lfe
+        command: echo "hello_lfe" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "x86_64" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: hello_erlang
+        command: echo "hello_erlang" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "x86_64" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: hello_phoenix
+        command: echo "hello_phoenix/firmware" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "x86_64" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: hello_wifi
+        command: echo "hello_wifi" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "x86_64" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: minimal
+        command: echo "minimal" > .project
+    - run: echo "rpi0" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi2" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi3a" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "rpi4" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "bbb" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+    - run: echo "x86_64" > .target
+    - restore_cache:
+        key: nerves/stats/{{ checksum ".project" }}/{{ checksum ".target" }}-{{ .Revision }}-{{ .Environment.CIRCLE_TAG }}
+
+    - run:
+        name: Clone the stats branch
+        command: |
+          git clone --branch stats git@github.com:nerves-project/nerves_examples.git stats
+    - run:
+        name: Aggregate stats
+        command: |
+          cat /home/nerves/stats/* >> stats/firmware_size.csv
+          cat /home/nerves/stats/*
+    - run:
+        name: Commit and push the new stats
+        command: |
+          git config --global user.email "nervesbot@nerves-project.org"
+          git config --global user.name "Nervesbot"
+          git -C stats commit -a -m "Stats for $CIRCLE_SHA1"
+          git -C stats push https://nervesbot:$GITHUB_API_TOKEN@github.com/nerves-project/nerves_examples stats:stats 2>&1 | sed s/$GITHUB_API_TOKEN/HIDDEN/g
+
+jobs:
+  blinky_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  blinky_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  blinky_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  blinky_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  blinky_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  blinky_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  blinky_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "blinky"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_gpio_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  hello_gpio_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  hello_gpio_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  hello_gpio_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  hello_gpio_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  hello_gpio_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  hello_gpio_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_gpio"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_leds_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  hello_leds_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  hello_leds_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  hello_leds_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  hello_leds_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  hello_leds_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  hello_leds_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_leds"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_phoenix_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  hello_phoenix_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  hello_phoenix_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  hello_phoenix_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  hello_phoenix_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  hello_phoenix_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  hello_phoenix_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_phoenix_x86_64:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_phoenix/firmware"
+      MIX_TARGET: "x86_64"
+    <<: *build
+
+  hello_lfe_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  hello_lfe_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  hello_lfe_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  hello_lfe_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  hello_lfe_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  hello_lfe_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  hello_lfe_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_lfe_x86_64:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_lfe"
+      MIX_TARGET: "x86_64"
+    <<: *build
+
+  hello_erlang_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  hello_erlang_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  hello_erlang_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  hello_erlang_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  hello_erlang_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  hello_erlang_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  hello_erlang_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_erlang_x86_64:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_erlang"
+      MIX_TARGET: "x86_64"
+    <<: *build
+
+  hello_wifi_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  hello_wifi_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  hello_wifi_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  hello_wifi_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  hello_wifi_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  hello_wifi_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  hello_wifi_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  hello_wifi_x86_64:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "hello_wifi"
+      MIX_TARGET: "x86_64"
+    <<: *build
+
+  minimal_rpi0:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "rpi0"
+    <<: *build
+
+  minimal_rpi:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "rpi"
+    <<: *build
+
+  minimal_rpi2:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "rpi2"
+    <<: *build
+
+  minimal_rpi3:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "rpi3"
+    <<: *build
+
+  minimal_rpi3a:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "rpi3a"
+    <<: *build
+
+  minimal_rpi4:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "rpi4"
+    <<: *build
+
+  minimal_bbb:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "bbb"
+    <<: *build
+
+  minimal_x86_64:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+      MIX_PROJECT: "minimal"
+      MIX_TARGET: "x86_64"
+    <<: *build
+
+
+  collect_stats:
+    <<: *defaults
+    environment:
+      <<: *elixir_version
+    <<: *collect_stats
+
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - blinky_rpi0:
+          <<: *context
+      - blinky_rpi:
+          <<: *context
+      - blinky_rpi2:
+          <<: *context
+      - blinky_rpi3:
+          <<: *context
+      - blinky_rpi3a:
+          <<: *context
+      - blinky_rpi4:
+          <<: *context
+      - blinky_bbb:
+          <<: *context
+      - hello_gpio_rpi0:
+          <<: *context
+      - hello_gpio_rpi:
+          <<: *context
+      - hello_gpio_rpi2:
+          <<: *context
+      - hello_gpio_rpi3:
+          <<: *context
+      - hello_gpio_rpi3a:
+          <<: *context
+      - hello_gpio_rpi4:
+          <<: *context
+      - hello_gpio_bbb:
+          <<: *context
+      - hello_leds_rpi0:
+          <<: *context
+      - hello_leds_rpi:
+          <<: *context
+      - hello_leds_rpi2:
+          <<: *context
+      - hello_leds_rpi3:
+          <<: *context
+      - hello_leds_rpi3a:
+          <<: *context
+      - hello_leds_rpi4:
+          <<: *context
+      - hello_leds_bbb:
+          <<: *context
+      - hello_phoenix_rpi0:
+          <<: *context
+      - hello_phoenix_rpi:
+          <<: *context
+      - hello_phoenix_rpi2:
+          <<: *context
+      - hello_phoenix_rpi3:
+          <<: *context
+      - hello_phoenix_rpi3a:
+          <<: *context
+      - hello_phoenix_rpi4:
+          <<: *context
+      - hello_phoenix_bbb:
+          <<: *context
+      - hello_phoenix_x86_64:
+          <<: *context
+      - hello_lfe_rpi0:
+          <<: *context
+      - hello_lfe_rpi:
+          <<: *context
+      - hello_lfe_rpi2:
+          <<: *context
+      - hello_lfe_rpi3:
+          <<: *context
+      - hello_lfe_rpi3a:
+          <<: *context
+      - hello_lfe_rpi4:
+          <<: *context
+      - hello_lfe_bbb:
+          <<: *context
+      - hello_lfe_x86_64:
+          <<: *context
+      - hello_erlang_rpi0:
+          <<: *context
+      - hello_erlang_rpi:
+          <<: *context
+      - hello_erlang_rpi2:
+          <<: *context
+      - hello_erlang_rpi3:
+          <<: *context
+      - hello_erlang_rpi3a:
+          <<: *context
+      - hello_erlang_rpi4:
+          <<: *context
+      - hello_erlang_bbb:
+          <<: *context
+      - hello_erlang_x86_64:
+          <<: *context
+      - hello_wifi_rpi0:
+          <<: *context
+      - hello_wifi_rpi:
+          <<: *context
+      - hello_wifi_rpi2:
+          <<: *context
+      - hello_wifi_rpi3:
+          <<: *context
+      - hello_wifi_rpi3a:
+          <<: *context
+      - hello_wifi_rpi4:
+          <<: *context
+      - hello_wifi_bbb:
+          <<: *context
+      - hello_wifi_x86_64:
+          <<: *context
+      - minimal_rpi0:
+          <<: *context
+      - minimal_rpi:
+          <<: *context
+      - minimal_rpi2:
+          <<: *context
+      - minimal_rpi3:
+          <<: *context
+      - minimal_rpi3a:
+          <<: *context
+      - minimal_rpi4:
+          <<: *context
+      - minimal_bbb:
+          <<: *context
+      - minimal_x86_64:
+          <<: *context
+
+      #-------------------------------
+      # Collect stats
+      #-------------------------------
+      - collect_stats:
+          <<: *context
+          requires:
+            - blinky_rpi0
+            - blinky_rpi
+            - blinky_rpi2
+            - blinky_rpi3
+            - blinky_rpi3a
+            - blinky_rpi4
+            - blinky_bbb
+            - hello_gpio_rpi0
+            - hello_gpio_rpi
+            - hello_gpio_rpi2
+            - hello_gpio_rpi3
+            - hello_gpio_rpi3a
+            - hello_gpio_rpi4
+            - hello_gpio_bbb
+            - hello_leds_rpi0
+            - hello_leds_rpi
+            - hello_leds_rpi2
+            - hello_leds_rpi3
+            - hello_leds_rpi3a
+            - hello_leds_rpi4
+            - hello_leds_bbb
+            - hello_phoenix_rpi0
+            - hello_phoenix_rpi
+            - hello_phoenix_rpi2
+            - hello_phoenix_rpi3
+            - hello_phoenix_rpi3a
+            - hello_phoenix_rpi4
+            - hello_phoenix_bbb
+            - hello_phoenix_x86_64
+            - hello_lfe_rpi0
+            - hello_lfe_rpi
+            - hello_lfe_rpi2
+            - hello_lfe_rpi3
+            - hello_lfe_rpi3a
+            - hello_lfe_rpi4
+            - hello_lfe_bbb
+            - hello_lfe_x86_64
+            - hello_erlang_rpi0
+            - hello_erlang_rpi
+            - hello_erlang_rpi2
+            - hello_erlang_rpi3
+            - hello_erlang_rpi3a
+            - hello_erlang_rpi4
+            - hello_erlang_bbb
+            - hello_erlang_x86_64
+            - hello_wifi_rpi0
+            - hello_wifi_rpi
+            - hello_wifi_rpi2
+            - hello_wifi_rpi3
+            - hello_wifi_rpi3a
+            - hello_wifi_rpi4
+            - hello_wifi_bbb
+            - hello_wifi_x86_64
+            - minimal_rpi0
+            - minimal_rpi
+            - minimal_rpi2
+            - minimal_rpi3
+            - minimal_rpi3a
+            - minimal_rpi4
+            - minimal_bbb
+            - minimal_x86_64
