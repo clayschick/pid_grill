@@ -22,11 +22,19 @@ install_phoenix: &install_phoenix
     name: Install Phoenix
       mix archive.install hex phx_new "~> 1.5" --force
 
+fake_ssh_keys: &fake_ssh_keys
+  run:
+    name: Generage bogus keys
+    command: |
+      rm -f ~/.ssh/id_rsa
+      ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+
 build: &build
   docker:
     - image: cimg/elixir:1.11.2-node
   steps:
     - checkout
+    - <<: *fake_ssh_keys
     - <<: *install_hex_rebar
     - <<: *install_nerves_bootstrap
     - run: 
