@@ -31,7 +31,11 @@ fake_ssh_keys: &fake_ssh_keys
 
 build: &build
   docker:
-    - image: cimg/elixir:1.11.2-node
+    - image: clayschick/cimg-elixir-nerves:1.11.2
+      auth:
+        username: clayschick
+        password: $DOCKERHUB_PASSWORD
+    # - image: cimg/elixir:1.11.2-node
   steps:
     - checkout
     - <<: *fake_ssh_keys
