@@ -63,6 +63,7 @@ jobs:
       MIX_FW_PROJECT: "fw"
       MIX_UI_PROJECT: "ui"
       MIX_TARGET: "rpi0"
+      SECRET_KEY_BASE: "adsfheraf"
     <<: *build
 
 workflows:
