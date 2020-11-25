@@ -8,7 +8,7 @@ import Config
 # Enable the Nerves integration with Mix
 Application.start(:nerves_bootstrap)
 
-config :fw, target: Mix.target()
+config :fw, target: config_target()
 
 # Customize non-Elixir parts of the firmware. See
 # https://hexdocs.pm/nerves/advanced-configuration.html for details.
@@ -26,6 +26,21 @@ config :nerves, source_date_epoch: "1606163985"
 
 config :logger, backends: [RingLogger]
 
-if Mix.target() != :host do
+# Use Jason for JSON parsing in Phoenix
+config :phoenix, :json_library, Jason
+
+# Configures the endpoint
+config :ui, UiWeb.Endpoint,
+  server: true,
+  code_reloader: false,
+  secret_key_base: "I2Wsn1gbYRnKptARNe5rhPLLl71AeQ7L0hM7SBazmqoaSyjyUw5mPUD9hSg7fZ7O",
+  render_errors: [view: UiWeb.ErrorView, accepts: ~w(html json), layout: false],
+  pubsub_server: Ui.PubSub,
+  live_view: [signing_salt: "EjuZyXMr"]
+
+if config_target() != :host do
   import_config "target.exs"
+  import_config "prod.exs"
+else
+  import_config "#{config_env()}.exs"
 end

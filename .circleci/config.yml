@@ -51,9 +51,10 @@ build: &build
         name: Build UI
         command: |
           cd $MIX_UI_PROJECT
-          mix deps.get
+          # mix deps.get
+          # cd assets && npm install
+          mix setup
           mix compile
-          cd assets && npm install
 
 jobs:
   rpi0:
