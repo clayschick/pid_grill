@@ -28,6 +28,11 @@ config :nerves,
 # * See https://hexdocs.pm/nerves_ssh/readme.html for general SSH configuration
 # * See https://hexdocs.pm/ssh_subsystem_fwup/readme.html for firmware updates
 
+# To do a remote firmware update:
+
+# $  WIFI_PASSWORD=string MIX_TARGET=rpi0 MIX_ENV=prod mix firmware
+# $  cat _build/rpi0_prod/nerves/images/fw.fw | ssh -s 192.168.1.15 fwup
+
 keys =
   [
     Path.join([System.user_home!(), ".ssh", "id_rsa.pub"]),
@@ -58,7 +63,19 @@ config :vintage_net,
        type: VintageNetEthernet,
        ipv4: %{method: :dhcp}
      }},
-    {"wlan0", %{type: VintageNetWiFi}}
+    {"wlan0", %{
+      type: VintageNetWiFi,
+      vintage_net_wifi: %{
+        networks: [
+          %{
+            key_mgmt: :wpa_psk,
+            ssid: "Trail House",
+            psk: System.get_env("WIFI_PASSWORD")
+          }
+        ]
+      },
+      ipv4: %{method: :dhcp},
+    }}
   ]
 
 config :mdns_lite,
