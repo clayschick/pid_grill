@@ -1,13 +1,12 @@
 defmodule Fw.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
+
 
   use Application
 
   def start(_type, _args) do
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
+    stop_fan(target())
+
     opts = [strategy: :one_for_one, name: Fw.Supervisor]
 
     children =
@@ -23,21 +22,24 @@ defmodule Fw.Application do
   # List all child processes to be supervised
   def children(:host) do
     [
-      # Children that only run on the host
-      # Starts a worker by calling: Fw.Worker.start_link(arg)
-      # {Fw.Worker, arg},
+      Fw.Adapters.SpiTest,
+      Fw.Temperature
     ]
   end
 
   def children(_target) do
     [
-      # Children for all targets except host
-      # Starts a worker by calling: Fw.Worker.start_link(arg)
-      # {Fw.Worker, arg},
+      Fw.Temperature
     ]
   end
 
   def target() do
     Application.get_env(:fw, :target)
   end
+
+  # PWM fans run when there is no voltage on the PWM pin
+  # Need to stop the running fan when the app starts
+  defp stop_fan(:host), do: :ok
+
+  defp stop_fan(_env), do: Fw.Fan.stop
 end
