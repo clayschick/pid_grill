@@ -1,6 +1,17 @@
-Below is the orginal SmokerGadet documentation. This just needs updated for this project.
-
 # SmokerGadget
+
+Prod build process:
+
+```
+export SECRET_KEY_BASE=some_value
+
+MIX_TARGET=rpi0 MIX_ENV=prod mix deps.get 
+MIX_TARGET=rpi0 MIX_ENV=prod mix firmware
+
+cat _build/rpi0_prod/nerves/images/fw.fw | ssh -s nerves.local fwup
+```
+
+Below is the orginal SmokerGadet documentation. This just needs updated for this project.
 
 ## Notes
 
